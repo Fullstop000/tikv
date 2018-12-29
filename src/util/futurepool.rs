@@ -196,8 +196,7 @@ impl<T: Context + 'static> FuturePool<T> {
         let contexts = (0..pool_size)
             .map(|_| {
                 let thread_id = rx.recv().unwrap();
-                let context = context_factory();
-                let context_delegator = ContextDelegator::new(context, tick_interval);
+                let context_delegator = ContextDelegator::new(context_factory(), tick_interval);
                 (thread_id, context_delegator)
             })
             .collect();

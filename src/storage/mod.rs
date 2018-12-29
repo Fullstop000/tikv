@@ -11,41 +11,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::boxed::FnBox;
-use std::cmp;
-use std::error;
-use std::fmt::{self, Debug, Display, Formatter};
-use std::io::Error as IoError;
-use std::sync::{Arc, atomic, Mutex};
-use std::u64;
-
-use futures::{future, Future};
-use kvproto::errorpb;
-use kvproto::kvrpcpb::{CommandPri, Context, KeyRange, LockInfo};
-use rocksdb::DB;
-
-use raftstore::store::engine::IterOption;
-use server::readpool::{self, ReadPool};
-use server::ServerRaftStoreRouter;
-use util;
-use util::collections::HashMap;
-use util::worker::{self, Builder, ScheduleError, Worker};
-
-pub use self::config::{Config, DEFAULT_DATA_DIR, DEFAULT_ROCKSDB_SUB_DIR};
-pub use self::engine::{
-    CFStatistics, Cursor, CursorBuilder, Engine, Error as EngineError, FlowStatistics, Iterator,
-    Modify, RocksEngine, ScanMode, Snapshot, Statistics, StatisticsSummary, TestEngineBuilder,
-};
-pub use self::engine::raftkv::RaftKv;
-use self::gc_worker::GCWorker;
-use self::metrics::*;
-use self::mvcc::Lock;
-pub use self::readpool_context::Context as ReadPoolContext;
-pub use self::txn::{FixtureStore, FixtureStoreScanner};
-pub use self::txn::{Msg, Scanner, Scheduler, SnapshotStore, Store, StoreScanner};
-use self::txn::CMD_BATCH_SIZE;
-pub use self::types::{Key, KvPair, MvccInfo, Value};
-
 pub mod config;
 pub mod engine;
 pub mod gc_worker;
@@ -55,10 +20,45 @@ mod readpool_context;
 pub mod txn;
 pub mod types;
 
+use std::boxed::FnBox;
+use std::cmp;
+use std::error;
+use std::fmt::{self, Debug, Display, Formatter};
+use std::io::Error as IoError;
+use std::sync::{atomic, Arc, Mutex};
+use std::u64;
+
+use futures::{future, Future};
+use kvproto::errorpb;
+use kvproto::kvrpcpb::{CommandPri, Context, KeyRange, LockInfo};
+
+use rocksdb::DB;
+
+use raftstore::store::engine::IterOption;
+use server::readpool::{self, ReadPool};
+use server::ServerRaftStoreRouter;
+use util;
+use util::collections::HashMap;
+use util::worker::{self, Builder, ScheduleError, Worker};
+
+use self::gc_worker::GCWorker;
+use self::metrics::*;
+use self::mvcc::Lock;
+use self::txn::CMD_BATCH_SIZE;
+
+pub use self::config::{Config, DEFAULT_DATA_DIR, DEFAULT_ROCKSDB_SUB_DIR};
+pub use self::engine::raftkv::RaftKv;
+pub use self::engine::{
+    CFStatistics, Cursor, CursorBuilder, Engine, Error as EngineError, FlowStatistics, Iterator,
+    Modify, RocksEngine, ScanMode, Snapshot, Statistics, StatisticsSummary, TestEngineBuilder,
+};
+pub use self::readpool_context::Context as ReadPoolContext;
+pub use self::txn::{FixtureStore, FixtureStoreScanner};
+pub use self::txn::{Msg, Scanner, Scheduler, SnapshotStore, Store, StoreScanner};
+pub use self::types::{Key, KvPair, MvccInfo, Value};
 pub type Callback<T> = Box<FnBox(Result<T>) + Send>;
 
 pub type CfName = &'static str;
-
 pub const CF_DEFAULT: CfName = "default";
 pub const CF_LOCK: CfName = "lock";
 pub const CF_WRITE: CfName = "write";
@@ -649,7 +649,7 @@ impl<E: Engine> Storage<E> {
     }
 
     /// Get a snapshot of `engine`.
-    fn async_snapshot(engine: E, ctx: &Context) -> impl Future<Item=E::Snap, Error=Error> {
+    fn async_snapshot(engine: E, ctx: &Context) -> impl Future<Item = E::Snap, Error = Error> {
         let (callback, future) = util::future::paired_future_callback();
         let val = engine.async_snapshot(ctx, callback);
 
@@ -668,7 +668,7 @@ impl<E: Engine> Storage<E> {
         ctx: Context,
         key: Key,
         start_ts: u64,
-    ) -> impl Future<Item=Option<Value>, Error=Error> {
+    ) -> impl Future<Item = Option<Value>, Error = Error> {
         const CMD: &str = "get";
         let engine = self.get_engine();
         let priority = readpool::Priority::from(ctx.get_priority());
@@ -724,7 +724,7 @@ impl<E: Engine> Storage<E> {
         ctx: Context,
         keys: Vec<Key>,
         start_ts: u64,
-    ) -> impl Future<Item=Vec<Result<KvPair>>, Error=Error> {
+    ) -> impl Future<Item = Vec<Result<KvPair>>, Error = Error> {
         const CMD: &str = "batch_get";
         let engine = self.get_engine();
         let priority = readpool::Priority::from(ctx.get_priority());
@@ -788,7 +788,7 @@ impl<E: Engine> Storage<E> {
         limit: usize,
         start_ts: u64,
         options: Options,
-    ) -> impl Future<Item=Vec<Result<KvPair>>, Error=Error> {
+    ) -> impl Future<Item = Vec<Result<KvPair>>, Error = Error> {
         const CMD: &str = "scan";
         let engine = self.get_engine();
         let priority = readpool::Priority::from(ctx.get_priority());
@@ -1083,7 +1083,7 @@ impl<E: Engine> Storage<E> {
         ctx: Context,
         cf: String,
         key: Vec<u8>,
-    ) -> impl Future<Item=Option<Vec<u8>>, Error=Error> {
+    ) -> impl Future<Item = Option<Vec<u8>>, Error = Error> {
         const CMD: &str = "raw_get";
         let engine = self.get_engine();
         let priority = readpool::Priority::from(ctx.get_priority());
@@ -1134,7 +1134,7 @@ impl<E: Engine> Storage<E> {
         ctx: Context,
         cf: String,
         keys: Vec<Vec<u8>>,
-    ) -> impl Future<Item=Vec<Result<KvPair>>, Error=Error> {
+    ) -> impl Future<Item = Vec<Result<KvPair>>, Error = Error> {
         const CMD: &str = "raw_batch_get";
         let engine = self.get_engine();
         let priority = readpool::Priority::from(ctx.get_priority());
@@ -1421,7 +1421,7 @@ impl<E: Engine> Storage<E> {
         limit: usize,
         key_only: bool,
         reverse: bool,
-    ) -> impl Future<Item=Vec<Result<KvPair>>, Error=Error> {
+    ) -> impl Future<Item = Vec<Result<KvPair>>, Error = Error> {
         const CMD: &str = "raw_scan";
         let engine = self.get_engine();
         let priority = readpool::Priority::from(ctx.get_priority());
@@ -1525,7 +1525,7 @@ impl<E: Engine> Storage<E> {
         each_limit: usize,
         key_only: bool,
         reverse: bool,
-    ) -> impl Future<Item=Vec<Result<KvPair>>, Error=Error> {
+    ) -> impl Future<Item = Vec<Result<KvPair>>, Error = Error> {
         const CMD: &str = "raw_batch_scan";
         let engine = self.get_engine();
         let priority = readpool::Priority::from(ctx.get_priority());
@@ -1745,13 +1745,10 @@ pub fn get_tag_from_header(header: &errorpb::Error) -> &'static str {
 
 #[cfg(test)]
 mod tests {
-    use std::sync::mpsc::{channel, Sender};
-
-    use kvproto::kvrpcpb::{Context, LockInfo};
-
-    use util::config::ReadableSize;
-
     use super::*;
+    use kvproto::kvrpcpb::{Context, LockInfo};
+    use std::sync::mpsc::{channel, Sender};
+    use util::config::ReadableSize;
 
     fn expect_none(x: Result<Option<Value>>) {
         assert_eq!(x.unwrap(), None);
