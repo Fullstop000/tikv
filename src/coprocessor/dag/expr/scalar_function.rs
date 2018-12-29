@@ -131,6 +131,7 @@ impl ScalarFunc {
             | ScalarFuncSig::Trim2Args
             | ScalarFuncSig::Substring2Args
             | ScalarFuncSig::SubstringBinary2Args
+            | ScalarFuncSig::DateDiff
             | ScalarFuncSig::Strcmp => (2, 2),
 
             ScalarFuncSig::CastIntAsInt
@@ -283,7 +284,8 @@ impl ScalarFunc {
             | ScalarFuncSig::Space
             | ScalarFuncSig::Compress
             | ScalarFuncSig::Uncompress
-            | ScalarFuncSig::UncompressedLength => (1, 1),
+            | ScalarFuncSig::UncompressedLength
+            | ScalarFuncSig::ToDays => (1, 1),
 
             ScalarFuncSig::IfInt
             | ScalarFuncSig::IfReal
@@ -379,7 +381,6 @@ impl ScalarFunc {
             | ScalarFuncSig::CurrentTime1Arg
             | ScalarFuncSig::CurrentUser
             | ScalarFuncSig::Database
-            | ScalarFuncSig::DateDiff
             | ScalarFuncSig::DateLiteral
             | ScalarFuncSig::DecimalAnyValue
             | ScalarFuncSig::DurationAnyValue
@@ -482,7 +483,6 @@ impl ScalarFunc {
             | ScalarFuncSig::TimeStringTimeDiff
             | ScalarFuncSig::TimeTimeTimeDiff
             | ScalarFuncSig::TimeToSec
-            | ScalarFuncSig::ToDays
             | ScalarFuncSig::ToSeconds
             | ScalarFuncSig::UnixTimestampCurrent
             | ScalarFuncSig::UnixTimestampDec
@@ -762,6 +762,8 @@ dispatch_call! {
         WeekDay => week_day,
         WeekOfYear => week_of_year,
         Year => year,
+        ToDays => to_days,
+        DateDiff => date_diff,
 
         LogicalAnd => logical_and,
         LogicalOr => logical_or,
@@ -1445,7 +1447,6 @@ mod tests {
             ScalarFuncSig::CurrentTime1Arg,
             ScalarFuncSig::CurrentUser,
             ScalarFuncSig::Database,
-            ScalarFuncSig::DateDiff,
             ScalarFuncSig::DateLiteral,
             ScalarFuncSig::DecimalAnyValue,
             ScalarFuncSig::DurationAnyValue,
@@ -1548,7 +1549,6 @@ mod tests {
             ScalarFuncSig::TimeStringTimeDiff,
             ScalarFuncSig::TimeTimeTimeDiff,
             ScalarFuncSig::TimeToSec,
-            ScalarFuncSig::ToDays,
             ScalarFuncSig::ToSeconds,
             ScalarFuncSig::UnixTimestampCurrent,
             ScalarFuncSig::UnixTimestampDec,
