@@ -718,6 +718,7 @@ impl ApplyDelegate {
             let res = match entry.get_entry_type() {
                 EntryType::EntryNormal => self.handle_raft_entry_normal(apply_ctx, &entry),
                 EntryType::EntryConfChange => self.handle_raft_entry_conf_change(apply_ctx, &entry),
+                EntryType::EntryConfChangeV2 => unimplemented!(),
             };
 
             match res {
@@ -1535,9 +1536,6 @@ impl ApplyDelegate {
                     "peer" => ?peer,
                     "region" => ?&self.region,
                 );
-            }
-            ConfChangeType::BeginMembershipChange | ConfChangeType::FinalizeMembershipChange => {
-                unimplemented!()
             }
         }
 

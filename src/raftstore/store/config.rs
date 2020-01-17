@@ -162,6 +162,9 @@ pub struct Config {
     #[serde(skip_serializing)]
     #[config(skip)]
     pub region_split_size: ReadableSize,
+    
+    /// The group id of current store
+    pub group_id: u64,
 }
 
 impl Default for Config {
@@ -230,6 +233,8 @@ impl Default for Config {
             // They are preserved for compatibility check.
             region_max_size: ReadableSize(0),
             region_split_size: ReadableSize(0),
+
+            group_id: 0,
         }
     }
 }
