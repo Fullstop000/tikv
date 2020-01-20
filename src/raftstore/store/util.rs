@@ -134,9 +134,6 @@ pub fn conf_change_type_str(conf_type: eraftpb::ConfChangeType) -> &'static str 
         ConfChangeType::AddNode => STR_CONF_CHANGE_ADD_NODE,
         ConfChangeType::RemoveNode => STR_CONF_CHANGE_REMOVE_NODE,
         ConfChangeType::AddLearnerNode => STR_CONF_CHANGE_ADDLEARNER_NODE,
-        ConfChangeType::BeginMembershipChange | ConfChangeType::FinalizeMembershipChange => {
-            unimplemented!()
-        }
     }
 }
 
@@ -577,7 +574,7 @@ pub fn conf_state_from_region(region: &metapb::Region) -> ConfState {
         if p.get_is_learner() {
             conf_state.mut_learners().push(p.get_id());
         } else {
-            conf_state.mut_nodes().push(p.get_id());
+            conf_state.mut_voters().push(p.get_id());
         }
     }
     conf_state

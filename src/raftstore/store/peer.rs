@@ -281,13 +281,12 @@ impl Peer {
             max_inflight_msgs: cfg.raft_max_inflight_msgs,
             applied: applied_index,
             check_quorum: true,
-            tag: tag.clone(),
             skip_bcast_commit: true,
             pre_vote: cfg.prevote,
             ..Default::default()
         };
 
-        let raft_group = RawNode::with_logger(&raft_cfg, ps, &slog_global::get_global())?;
+        let raft_group = RawNode::new(&raft_cfg, ps, &slog_global::get_global())?;
         let mut peer = Peer {
             peer,
             region_id: region.get_id(),
@@ -403,7 +402,7 @@ impl Peer {
         self.raft_group
             .raft
             .raft_log
-            .maybe_append(log_idx, log_term, merge.get_commit(), entries)
+            .maybe_append(log_idx, log_term, merge.get_commit(), entries).and_then(|r| Some(r.1))
     }
 
     /// Tries to destroy itself. Returns a job (if needed) to do more cleaning tasks.
@@ -624,7 +623,7 @@ impl Peer {
 
     #[inline]
     pub fn get_store(&self) -> &PeerStorage {
-        self.raft_group.get_store()
+        self.raft_group.store()
     }
 
     #[inline]
@@ -645,7 +644,7 @@ impl Peer {
 
     #[inline]
     pub fn get_pending_snapshot(&self) -> Option<&eraftpb::Snapshot> {
-        self.raft_group.get_snap()
+        self.raft_group.snap()
     }
 
     fn add_ready_metric(&self, ready: &Ready, metrics: &mut RaftReadyMetrics) {
@@ -764,7 +763,7 @@ impl Peer {
         }
 
         // Insert heartbeats in case that some peers never response heartbeats.
-        let region = self.raft_group.get_store().region();
+        let region = self.raft_group.store().region();
         for peer in region.get_peers() {
             self.peer_heartbeats
                 .entry(peer.get_id())
@@ -849,7 +848,7 @@ impl Peer {
             if self.peers_start_pending_time[i].0 != peer_id {
                 continue;
             }
-            let truncated_idx = self.raft_group.get_store().truncated_index();
+            let truncated_idx = self.raft_group.store().truncated_index();
             if let Some(progress) = self.raft_group.raft.prs().get(peer_id) {
                 if progress.matched >= truncated_idx {
                     let (_, pending_after) = self.peers_start_pending_time.swap_remove(i);
@@ -880,7 +879,7 @@ impl Peer {
             self.leader_missing_time = None;
             return StaleState::Valid;
         }
-        let naive_peer = !self.is_initialized() || self.raft_group.raft.is_learner;
+        let naive_peer = !self.is_initialized() || !self.raft_group.raft.promotable();
         // Updates the `leader_missing_time` according to the current state.
         //
         // If we are checking this it means we suspect the leader might be missing.
@@ -1754,9 +1753,6 @@ impl Peer {
             }
             ConfChangeType::AddLearnerNode => {
                 return Ok(());
-            }
-            ConfChangeType::BeginMembershipChange | ConfChangeType::FinalizeMembershipChange => {
-                unimplemented!()
             }
         }
         let healthy = self.count_healthy_node(progress.voters());
